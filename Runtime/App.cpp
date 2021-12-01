@@ -6,7 +6,7 @@
 #include "DwmSharedSurfaceFrameSource.h"
 #include "LegacyGDIFrameSource.h"
 #include "MagCallbackFrameSource.h"
-
+#include "PrintWindowFrameSource.h"
 
 extern std::shared_ptr<spdlog::logger> logger;
 
@@ -14,6 +14,7 @@ const UINT WM_DESTORYHOST = RegisterWindowMessage(L"MAGPIE_WM_DESTORYHOST");
 
 static constexpr const wchar_t* HOST_WINDOW_CLASS_NAME = L"Window_Magpie_967EB565-6F73-4E94-AE53-00CC42592A22";
 static constexpr const wchar_t* DDF_WINDOW_CLASS_NAME = L"Window_Magpie_C322D752-C866-4630-91F5-32CB242A8930";
+static constexpr const wchar_t* HOST_WINDOW_TITLE = L"Magpie_Host";
 
 
 App::~App() {
@@ -26,19 +27,8 @@ bool App::Initialize(HINSTANCE hInst) {
 
 	_hInst = hInst;
 
-	// 在 Win10/11 中使用 winrt::init_apartment，否则初始化 COM
-	if (Utils::IsWin10OrNewer()) {
-		winrt::init_apartment(winrt::apartment_type::multi_threaded);
-		SPDLOG_LOGGER_INFO(logger, "已初始化 WinRT");
-	} else {
-		// 初始化 COM
-		HRESULT hr = Windows::Foundation::Initialize(RO_INIT_MULTITHREADED);
-		if (FAILED(hr)) {
-			SPDLOG_LOGGER_CRITICAL(logger, MakeComErrorMsg("初始化 COM 失败", hr));
-			return false;
-		}
-		SPDLOG_LOGGER_INFO(logger, "已初始化 COM");
-	}
+	// 初始化 COM
+	winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
 	_RegisterWndClasses();
 
@@ -51,6 +41,63 @@ bool App::Initialize(HINSTANCE hInst) {
 	return true;
 }
 
+BOOL CALLBACK EnumChildProc(
+	_In_ HWND   hwnd,
+	_In_ LPARAM lParam
+) {
+	std::wstring className(256, 0);
+	int num = GetClassName(hwnd, &className[0], (int)className.size());
+	if (num == 0) {
+		SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("GetClassName 失败"));
+		return TRUE;
+	}
+	className.resize(num);
+
+	if (className == L"ApplicationFrameInputSinkWindow") {
+		((std::vector<HWND>*)lParam)->push_back(hwnd);
+	}
+
+	return TRUE;
+}
+
+HWND FindClientWindow(HWND hwndSrc) {
+	std::wstring className(256, 0);
+	int num = GetClassName(hwndSrc, &className[0], (int)className.size());
+	if (num > 0) {
+		className.resize(num);
+		if (className == L"ApplicationFrameWindow" || className == L"Windows.UI.Core.CoreWindow") {
+			// "Modern App"
+			std::vector<HWND> childWindows;
+			// 查找所有窗口类名为 ApplicationFrameInputSinkWindow 的子窗口
+			// 该子窗口一般为客户区
+			EnumChildWindows(hwndSrc, EnumChildProc, (LPARAM)&childWindows);
+
+			if (!childWindows.empty()) {
+				// 如果有多个匹配的子窗口，取最大的（一般不会出现）
+				int maxSize = 0, maxIdx = 0;
+				for (int i = 0; i < childWindows.size(); ++i) {
+					RECT rect;
+					if (!GetClientRect(childWindows[i], &rect)) {
+						continue;
+					}
+
+					int size = rect.right - rect.left + rect.bottom - rect.top;
+					if (size > maxSize) {
+						maxSize = size;
+						maxIdx = i;
+					}
+				}
+
+				return childWindows[maxIdx];
+			}
+		}
+	} else {
+		SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("GetClassName 失败"));
+	}
+
+	return hwndSrc;
+}
+
 bool App::Run(
 	HWND hwndSrc,
 	const std::string& effectsJson,
@@ -58,6 +105,7 @@ bool App::Run(
 	int frameRate,
 	float cursorZoomFactor,
 	UINT cursorInterpolationMode,
+	UINT adapterIdx,
 	UINT flags
 ) {
 	_hwndSrc = hwndSrc;
@@ -65,9 +113,10 @@ bool App::Run(
 	_frameRate = frameRate;
 	_cursorZoomFactor = cursorZoomFactor;
 	_cursorInterpolationMode = cursorInterpolationMode;
+	_adapterIdx = adapterIdx;
 	_flags = flags;
 
-	SPDLOG_LOGGER_INFO(logger, fmt::format("运行时参数：\n\thwndSrc：{}\n\tcaptureMode：{}\n\tadjustCursorSpeed：{}\n\tshowFPS：{}\n\tdisableRoundCorner：{}\n\tframeRate：{}\n\tdisableLowLatency：{}\n\tbreakpointMode：{}\n\tdisableWindowResizing：{}\n\tdisableDirectFlip：{}\n\tConfineCursorIn3DGames：{}", (void*)hwndSrc, captureMode, IsAdjustCursorSpeed(), IsShowFPS(), IsDisableRoundCorner(), frameRate, IsDisableLowLatency(), IsBreakpointMode(), IsDisableWindowResizing(), IsDisableDirectFlip(), IsConfineCursorIn3DGames()));
+	SPDLOG_LOGGER_INFO(logger, fmt::format("运行时参数：\n\thwndSrc：{}\n\tcaptureMode：{}\n\tadjustCursorSpeed：{}\n\tshowFPS：{}\n\tdisableRoundCorner：{}\n\tframeRate：{}\n\tdisableLowLatency：{}\n\tbreakpointMode：{}\n\tdisableWindowResizing：{}\n\tdisableDirectFlip：{}\n\tConfineCursorIn3DGames：{}\n\tadapterIdx：{}\n\tCropTitleBarOfUWP：{}", (void*)hwndSrc, captureMode, IsAdjustCursorSpeed(), IsShowFPS(), IsDisableRoundCorner(), frameRate, IsDisableLowLatency(), IsBreakpointMode(), IsDisableWindowResizing(), IsDisableDirectFlip(), IsConfineCursorIn3DGames(), adapterIdx, IsCropTitleBarOfUWP()));
 
 	// 每次进入全屏都要重置
 	_nextTimerId = 1;
@@ -88,7 +137,9 @@ bool App::Run(
 		}
 	}
 
-	_srcClientRect = Utils::GetClientScreenRect(_hwndSrc);
+	_hwndSrcClient = FindClientWindow(hwndSrc);
+
+	_srcClientRect = Utils::GetClientScreenRect(IsCropTitleBarOfUWP() ? _hwndSrcClient : _hwndSrc);
 	if (_srcClientRect.right == 0 || _srcClientRect.bottom == 0) {
 		SPDLOG_LOGGER_CRITICAL(logger, "获取源窗口客户区失败");
 		return false;
@@ -100,12 +151,6 @@ bool App::Run(
 	if (!_CreateHostWnd()) {
 		SPDLOG_LOGGER_CRITICAL(logger, "创建主窗口失败");
 		return false;
-	}
-
-	if (IsDisableDirectFlip() && !IsBreakpointMode()) {
-		if (!_DisableDirectFlip()) {
-			SPDLOG_LOGGER_ERROR(logger, "_DisableDirectFlip 失败");
-		}
 	}
 
 	_renderer.reset(new Renderer());
@@ -132,23 +177,26 @@ bool App::Run(
 	case 4:
 		_frameSource.reset(new MagCallbackFrameSource());
 		break;
+	case 5:
+		_frameSource.reset(new PrintWindowFrameSource());
+		break;
 	default:
 		SPDLOG_LOGGER_CRITICAL(logger, "未知的捕获模式，即将退出");
-		DestroyWindow(_hwndHost);
+		Close();
 		_Run();
 		return false;
 	}
 	
 	if (!_frameSource->Initialize()) {
 		SPDLOG_LOGGER_CRITICAL(logger, "初始化 FrameSource 失败，即将退出");
-		DestroyWindow(_hwndHost);
+		Close();
 		_Run();
 		return false;
 	}
 
 	if (!_renderer->InitializeEffectsAndCursor(effectsJson)) {
 		SPDLOG_LOGGER_CRITICAL(logger, "初始化效果失败，即将退出");
-		DestroyWindow(_hwndHost);
+		Close();
 		_Run();
 		return false;
 	}
@@ -170,6 +218,12 @@ bool App::Run(
 				SPDLOG_LOGGER_INFO(logger, "已禁用窗口圆角");
 				roundCornerDisabled = true;
 			}
+		}
+	}
+
+	if (!IsBreakpointMode() && IsDisableDirectFlip()) {
+		if (!_DisableDirectFlip()) {
+			SPDLOG_LOGGER_ERROR(logger, "_DisableDirectFlip 失败");
 		}
 	}
 
@@ -294,17 +348,17 @@ bool App::_CreateHostWnd() {
 		return false;
 	}
 
-	RECT screenRect = Utils::GetScreenRect(_hwndSrc);
-	_hostWndSize.cx = screenRect.right - screenRect.left;
-	_hostWndSize.cy = screenRect.bottom - screenRect.top;
+	_hostWndRect = Utils::GetScreenRect(_hwndSrc);
+
 	_hwndHost = CreateWindowEx(
 		(IsBreakpointMode() ? 0 : WS_EX_TOPMOST) | WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TRANSPARENT,
 		HOST_WINDOW_CLASS_NAME,
-		NULL, WS_CLIPCHILDREN | WS_POPUP | WS_VISIBLE,
-		screenRect.left,
-		screenRect.top,
-		_hostWndSize.cx,
-		_hostWndSize.cy,
+		HOST_WINDOW_TITLE,
+		WS_CLIPCHILDREN | WS_POPUP | WS_VISIBLE,
+		_hostWndRect.left,
+		_hostWndRect.top,
+		_hostWndRect.right - _hostWndRect.left,
+		_hostWndRect.bottom - _hostWndRect.top,
 		NULL,
 		NULL,
 		_hInst,
@@ -315,7 +369,8 @@ bool App::_CreateHostWnd() {
 		return false;
 	}
 
-	SPDLOG_LOGGER_INFO(logger, fmt::format("主窗口尺寸：{}x{}", _hostWndSize.cx, _hostWndSize.cy));
+	SPDLOG_LOGGER_INFO(logger, fmt::format("主窗口尺寸：{}x{}",
+		_hostWndRect.right - _hostWndRect.left, _hostWndRect.bottom - _hostWndRect.top));
 
 	// 设置窗口不透明
 	// 不完全透明时可关闭 DirectFlip
@@ -336,8 +391,17 @@ bool App::_DisableDirectFlip() {
 	// 将全屏窗口设为稍微透明，以灰色全屏窗口为背景
 	_hwndDDF = CreateWindowEx(
 		WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TRANSPARENT,
-		DDF_WINDOW_CLASS_NAME, NULL, WS_CLIPCHILDREN | WS_POPUP | WS_VISIBLE,
-		0, 0, _hostWndSize.cx, _hostWndSize.cy, NULL, NULL, _hInst, NULL
+		DDF_WINDOW_CLASS_NAME,
+		NULL,
+		WS_CLIPCHILDREN | WS_POPUP | WS_VISIBLE,
+		_hostWndRect.left,
+		_hostWndRect.top,
+		_hostWndRect.right - _hostWndRect.left,
+		_hostWndRect.bottom - _hostWndRect.top,
+		NULL,
+		NULL,
+		_hInst,
+		NULL
 	);
 
 	if (!_hwndDDF) {

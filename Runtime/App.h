@@ -22,6 +22,7 @@ public:
 		int frameRate,
 		float cursorZoomFactor,
 		UINT cursorInterpolationMode,
+		UINT adapterIdx,
 		UINT flags
 	);
 
@@ -35,6 +36,10 @@ public:
 		return _hwndSrc;
 	}
 
+	HWND GetHwndSrcClient() const {
+		return _hwndSrcClient;
+	}
+
 	const RECT& GetSrcClientRect() const {
 		return _srcClientRect;
 	}
@@ -43,8 +48,8 @@ public:
 		return _hwndHost;
 	}
 
-	SIZE GetHostWndSize() const {
-		return _hostWndSize;
+	RECT GetHostWndRect() const {
+		return _hostWndRect;
 	}
 
 	Renderer& GetRenderer() {
@@ -69,6 +74,10 @@ public:
 
 	UINT GetCursorInterpolationMode() const {
 		return _cursorInterpolationMode;
+	}
+
+	UINT GetAdapterIdx() const {
+		return _adapterIdx;
 	}
 
 	bool IsNoCursor() const {
@@ -107,6 +116,10 @@ public:
 		return _flags & (UINT)_FlagMasks::ConfineCursorIn3DGames;
 	}
 
+	bool IsCropTitleBarOfUWP() const {
+		return _flags & (UINT)_FlagMasks::CropTitleBarOfUWP;
+	}
+
 	const char* GetErrorMsg() const {
 		return _errorMsg;
 	}
@@ -141,18 +154,20 @@ private:
 
 	HINSTANCE _hInst = NULL;
 	HWND _hwndSrc = NULL;
+	HWND _hwndSrcClient = NULL;
 	HWND _hwndHost = NULL;
 
 	// 关闭 DirectFlip 时的背景全屏窗口
 	HWND _hwndDDF = NULL;
 
-	SIZE _hostWndSize{};
+	RECT _hostWndRect{};
 	RECT _srcClientRect{};
 
 	UINT _captureMode = 0;
 	int _frameRate = 0;
 	float _cursorZoomFactor = 0;
-	UINT _cursorInterpolationMode = 02;
+	UINT _cursorInterpolationMode = 0;
+	UINT _adapterIdx = 0;
 	UINT _flags = 0;
 
 	enum class _FlagMasks : UINT {
@@ -164,7 +179,8 @@ private:
 		BreakpointMode = 0x20,
 		DisableWindowResizing = 0x40,
 		DisableDirectFlip = 0x80,
-		ConfineCursorIn3DGames = 0x100
+		ConfineCursorIn3DGames = 0x100,
+		CropTitleBarOfUWP = 0x200
 	};
 
 	std::unique_ptr<Renderer> _renderer;

@@ -17,7 +17,7 @@
     <ProjectGuid>{8fc22a64-6d09-478b-9980-608d27601ef2}</ProjectGuid>
     <RootNamespace>Runtime</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
     <ProjectName>Runtime</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -167,6 +167,7 @@
     <ClInclude Include="LegacyGDIFrameSource.h" />
     <ClInclude Include="MagCallbackFrameSource.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PrintWindowFrameSource.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="DwmSharedSurfaceFrameSource.h" />
@@ -191,6 +192,7 @@
     <ClCompile Include="MagCallbackFrameSource.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="DllMain.cpp" />
+    <ClCompile Include="PrintWindowFrameSource.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="DwmSharedSurfaceFrameSource.cpp" />
     <ClCompile Include="StepTimer.cpp" />

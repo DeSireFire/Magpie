@@ -5,6 +5,29 @@
 #include <winternl.h>
 
 
+RECT Utils::GetClientScreenRect(HWND hWnd) {
+	RECT clientRect;
+	if (!GetClientRect(hWnd, &clientRect)) {
+		SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("GetClientRect 出错"));
+		assert(false);
+		return {};
+	}
+
+	POINT p{};
+	if (!ClientToScreen(hWnd, &p)) {
+		SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("ClientToScreen 出错"));
+		assert(false);
+		return {};
+	}
+
+	clientRect.bottom += p.y;
+	clientRect.left += p.x;
+	clientRect.right += p.x;
+	clientRect.top += p.y;
+
+	return clientRect;
+}
+
 bool Utils::ReadFile(const wchar_t* fileName, std::vector<BYTE>& result) {
 	SPDLOG_LOGGER_INFO(logger, fmt::format("读取文件：{}", StrUtils::UTF16ToUTF8(fileName)));
 
@@ -92,16 +115,6 @@ const RTL_OSVERSIONINFOW& Utils::GetOSVersion() {
 	return version;
 }
 
-bool _IsWin10OrNewer() {
-	const RTL_OSVERSIONINFOW& osVer = Utils::GetOSVersion();
-	return osVer.dwMajorVersion >= 10;
-}
-
-bool Utils::IsWin10OrNewer() {
-	static bool value = _IsWin10OrNewer();
-	return value;
-}
-
 std::string Utils::Bin2Hex(BYTE* data, size_t len) {
 	if (!data || len == 0) {
 		return {};
@@ -132,7 +145,7 @@ Utils::Hasher::~Hasher() {
 	if (_hashObj) {
 		HeapFree(GetProcessHeap(), 0, _hashObj);
 	}
-	if (_supportReuse && _hHash) {
+	if (_hHash) {
 		BCryptDestroyHash(_hHash);
 	}
 }
@@ -165,10 +178,9 @@ bool Utils::Hasher::Initialize() {
 	}
 
 	status = BCryptCreateHash(_hAlg, &_hHash, (PUCHAR)_hashObj, _hashObjLen, NULL, 0, BCRYPT_HASH_REUSABLE_FLAG);
-	if (NT_SUCCESS(status)) {
-		_supportReuse = true;
-	} else {
-		SPDLOG_LOGGER_WARN(logger, fmt::format("BCryptCreateHash 失败：当前设备不支持 BCRYPT_HASH_REUSABLE_FLAG\n\tNTSTATUS={}", status));
+	if (!NT_SUCCESS(status)) {
+		SPDLOG_LOGGER_ERROR(logger, fmt::format("BCryptCreateHash 失败\n\tNTSTATUS={}", status));
+		return false;
 	}
 
 	SPDLOG_LOGGER_INFO(logger, "Utils::Hasher 初始化成功");
@@ -178,17 +190,7 @@ bool Utils::Hasher::Initialize() {
 bool Utils::Hasher::Hash(void* data, size_t len, std::vector<BYTE>& result) {
 	result.resize(_hashLen);
 
-	NTSTATUS status;
-
-	if (!_supportReuse) {
-		status = BCryptCreateHash(_hAlg, &_hHash, (PUCHAR)_hashObj, _hashObjLen, NULL, 0, BCRYPT_HASH_REUSABLE_FLAG);
-		if (!NT_SUCCESS(status)) {
-			SPDLOG_LOGGER_ERROR(logger, fmt::format("BCryptCreateHash 失败\n\tNTSTATUS={}", status));
-			return false;
-		}
-	}
-
-	status = BCryptHashData(_hHash, (PUCHAR)data, (ULONG)len, 0);
+	NTSTATUS status = BCryptHashData(_hHash, (PUCHAR)data, (ULONG)len, 0);
 	if (!NT_SUCCESS(status)) {
 		SPDLOG_LOGGER_ERROR(logger, fmt::format("BCryptCreateHash 失败\n\tNTSTATUS={}", status));
 		return false;
@@ -198,10 +200,6 @@ bool Utils::Hasher::Hash(void* data, size_t len, std::vector<BYTE>& result) {
 	if (!NT_SUCCESS(status)) {
 		SPDLOG_LOGGER_ERROR(logger, fmt::format("BCryptFinishHash 失败\n\tNTSTATUS={}", status));
 		return false;
-	}
-
-	if (!_supportReuse) {
-		BCryptDestroyHash(_hHash);
 	}
 
 	return true;

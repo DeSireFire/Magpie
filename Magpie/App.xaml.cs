@@ -2,26 +2,22 @@
 using NLog;
 using NLog.Config;
 using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Security.Principal;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 
 
+// 关于 PerMonitor DPI 感知：
+// 已禁用警告 WFAC010：ApplicationHighDpiMode 只对 winforms 起作用
 namespace Magpie {
 	/// <summary>
 	/// Interaction logic for App.xaml
 	/// </summary>
 	public partial class App : Application {
-		public static readonly Version APP_VERSION = new("0.7.0.0");
+		public static readonly Version APP_VERSION = new("0.8.0.0");
 		public static readonly string SCALE_MODELS_JSON_PATH = Path.Combine(Directory.GetCurrentDirectory(), "ScaleModels.json");
 
 		private static Logger Logger { get; } = LogManager.GetCurrentClassLogger();
@@ -75,7 +71,7 @@ namespace Magpie {
 			InitNLog();
 			SetLogLevel(Settings.Default.LoggingLevel);
 
-			Logger.Info($"程序启动\n\t进程 ID：{Environment.ProcessId}\n\tMagpie 版本：{APP_VERSION}\n\tOS 版本：{NativeMethods.GetOSVersion()}");
+			Logger.Info($"程序启动\n\t进程 ID：{Environment.ProcessId}\n\tMagpie 版本：{APP_VERSION}\n\tOS 版本：{Environment.OSVersion.Version}");
 
 			if (!string.IsNullOrEmpty(Settings.Default.CultureName)) {
 				Thread.CurrentThread.CurrentCulture = Thread.CurrentThread.CurrentUICulture =

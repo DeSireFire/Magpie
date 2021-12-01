@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Linq;
 using Magpie.Options;
 
+
 namespace Magpie {
 	/// <summary>
 	/// Interaction logic for MainWindow.xaml
@@ -50,6 +51,9 @@ namespace Magpie {
 		};
 
 		private void Application_Closing() {
+			// 托盘图标不会主动消失
+			notifyIcon.Visible = false;
+
 			magWindow?.Dispose();
 			optionsWindow?.Close();
 		}
@@ -257,6 +261,7 @@ namespace Magpie {
 				frameRate,
 				Settings.Default.CursorZoomFactor,
 				Settings.Default.CursorInterpolationMode,
+				Settings.Default.AdapterIdx,
 				Settings.Default.ShowFPS,
 				Settings.Default.NoCursor,
 				Settings.Default.AdjustCursorSpeed,
@@ -265,7 +270,8 @@ namespace Magpie {
 				Settings.Default.DisableLowLatency,
 				Settings.Default.DebugBreakpointMode,
 				Settings.Default.DisableDirectFlip,
-				Settings.Default.ConfineCursorIn3DGames
+				Settings.Default.ConfineCursorIn3DGames,
+				Settings.Default.CropTitleBarOfUWP
 			);
 
 			prevSrcWindow = magWindow.SrcWindow;
@@ -397,6 +403,9 @@ namespace Magpie {
 				});
 				_ = cbbCaptureMethod.Items.Add(new ComboBoxItem {
 					Content = "MagCallback"
+				});
+				_ = cbbCaptureMethod.Items.Add(new ComboBoxItem {
+					Content = "PrintWindow"
 				});
 			} else {
 				if (cbbCaptureMethod.Items.Count != 5) {

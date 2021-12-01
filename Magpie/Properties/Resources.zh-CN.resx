@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Msg_Error_Generic" xml:space="preserve">
     <value>出现错误，请查看日志获取更多信息。</value>
@@ -243,6 +243,9 @@
   <data name="UI_Options_Application_Always_Run_As_Admin" xml:space="preserve">
     <value>始终以管理员权限运行</value>
   </data>
+  <data name="UI_Options_Application_Crop_Title_Bar_Of_UWP" xml:space="preserve">
+    <value>裁剪 UWP 窗口的标题栏</value>
+  </data>
   <data name="UI_Options_Application_Language" xml:space="preserve">
     <value>语言</value>
   </data>
@@ -260,6 +263,9 @@
   </data>
   <data name="UI_Options_Common_Restart_To_Apply" xml:space="preserve">
     <value>此更改将在重新启动Magpie后应用。</value>
+  </data>
+  <data name="UI_Options_Scale_Adapter" xml:space="preserve">
+    <value>图形适配器</value>
   </data>
   <data name="UI_Options_Scale_Adjust_Cursor_Speed" xml:space="preserve">
     <value>缩放时调整光标速度</value>

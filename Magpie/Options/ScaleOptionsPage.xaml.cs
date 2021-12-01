@@ -16,11 +16,18 @@ namespace Magpie.Options {
 
 		private static readonly float[] cursorZoomFactors = { 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, -1.0f };
 
+		private static readonly string[] graphicsAdapters = NativeMethods.GetAllGraphicsAdapters();
+
 		public ScaleOptionsPage() {
 			InitializeComponent();
 
-			if (NativeMethods.GetOSVersion() < new Version(10, 0, 22000)) {
-				ckbDisableRoundCorner.Visibility = Visibility.Collapsed;
+			// 图形适配器
+			foreach (string adapter in graphicsAdapters) {
+				cbbAdapter.Items.Add(adapter);
+			}
+
+			if (Settings.Default.AdapterIdx < 0 || Settings.Default.AdapterIdx >= graphicsAdapters.Length) {
+				Settings.Default.AdapterIdx = 0;
 			}
 
 			cbbCursorZoomFactor.Items.Clear();
@@ -38,7 +45,7 @@ namespace Magpie.Options {
 				Content = Properties.Resources.UI_Options_Scale_Cursor_Same_As_Source_Window
 			});
 
-			if(Settings.Default.CursorZoomFactor <= 0) {
+			if (Settings.Default.CursorZoomFactor <= 0) {
 				cbbCursorZoomFactor.SelectedIndex = cursorZoomFactors.Length - 1;
 			}
 
@@ -49,7 +56,7 @@ namespace Magpie.Options {
 		}
 
 		private void BtnScale_Click(object sender, RoutedEventArgs e) {
-			ProcessStartInfo psi = new ProcessStartInfo(App.SCALE_MODELS_JSON_PATH) {
+			ProcessStartInfo psi = new(App.SCALE_MODELS_JSON_PATH) {
 				UseShellExecute = true
 			};
 

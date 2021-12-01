@@ -20,28 +20,7 @@ struct Utils {
 		return wp.showCmd;
 	}
 
-	static RECT GetClientScreenRect(HWND hWnd) {
-		RECT r;
-		if (!GetClientRect(hWnd, &r)) {
-			SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("GetClientRect 出错"));
-			assert(false);
-			return {};
-		}
-
-		POINT p{};
-		if (!ClientToScreen(hWnd, &p)) {
-			SPDLOG_LOGGER_ERROR(logger, MakeWin32ErrorMsg("ClientToScreen 出错"));
-			assert(false);
-			return {};
-		}
-
-		r.bottom += p.y;
-		r.left += p.x;
-		r.right += p.x;
-		r.top += p.y;
-
-		return r;
-	}
+	static RECT GetClientScreenRect(HWND hWnd);
 
 	static RECT GetScreenRect(HWND hWnd) {
 		HMONITOR hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
@@ -98,8 +77,6 @@ struct Utils {
 		}
 	}
 
-	static bool IsWin10OrNewer();
-
 	static std::string Bin2Hex(BYTE* data, size_t len);
 
 	class Hasher {
@@ -124,7 +101,6 @@ struct Utils {
 		void* _hashObj = nullptr;	// 存储 hash 对象
 		DWORD _hashLen = 0;			// 哈希结果的大小
 		BCRYPT_HASH_HANDLE _hHash = NULL;
-		bool _supportReuse = false;
 	};
 
 	template<typename T>
